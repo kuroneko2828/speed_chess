@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <title>早押しで chess！！</title>
+        <script>
+            var current = new Array(64);   // 現在の盤面
+            var advance = new Array(64);   // 進めるマス（可能:1, 不可能:-1）
+            var now;                       // 現在の現在の手番（白:1, 黒:-1）
+            var timer1, timer2;            // タイマー
+            var maxTime, startTime;        // 制限時間、開始時間
+            var f = 1;                     // フラグ
+            var remaining,move;            // メッセージ
+
+            function init(){
+                // 盤面の作成
+                document.getElementById("game").innerHTML = "";
+                // 現在の盤面，駒の選択状況の初期化
+                for (var i=0; i<64; i++){
+                    current[i] = "0";
+                    advance[i] = -1;
+                }
+                for (var x=0; x<8; x++){
+                    for (var y=0; y<8; y++){
+                        var masu = document.createElement("div");
+                        var index = x+y*8;
+                        masu.id = "masu_" + (x+y*8);
+                        masu.style.top = y * 80 + "px";
+                        masu.style.left = x * 80 + "px";
+                        masu.onclick = selectPiece;
+
+                        // 駒の初期位置
+                        if(x==3 && y==0){// 黒クイーン
+                            current[index] = "b_5";
+                            masu.innerHTML = "&#x265b;";
+                        }else if(x==4 && y==0){// 黒キング
+                            current[index] = "b_6";
+                            masu.innerHTML = "&#x265a;";
+                        }else if((x==2 || x==5) && y==0){// 黒ビショップ
+                            current[index] = "b_4";
+                            masu.innerHTML = "&#x265d;";
+                        }else if((x==1 || x==6) && y==0){// 黒ナイト
+                            current[index] = "b_3";
+                            masu.innerHTML = "&#x265e;";
+                        }else if((x==0 || x==7) && y==0){// 黒ルーク
+                            current[index] = "b_2";
+                            masu.innerHTML = "&#x265c;";
+                        }else if(y==1){// 黒ポーン
+                            current[index] = "b_1";
+                            masu.innerHTML = "&#x265f;";
+                        }else if(x==3 && y==7){// 白クイーン
+                            current[index] = "w_5";
+                            masu.innerHTML = "&#x2655;";
+                        }else if(x==4 && y==7){// 白キング
+                            current[index] = "w_6";
+                            masu.innerHTML = "&#x2654;";
+                        }else if((x==2 || x==5) && y==7){// 白ビショップ
+                            current[index] = "w_4";
+                            masu.innerHTML = "&#x2657;";
+                        }else if((x==1 || x==6) && y==7){// 白ナイト
+                            current[index] = "w_3";
+                            masu.innerHTML = "&#x2658;";
+                        }else if((x==0 || x==7) && y==7){// 白ルーク
+                            current[index] = "w_2";
+                            masu.innerHTML = "&#x2656;";
+                        }else if(y==6){// 白ポーン
+                            current[index] = "w_1";
+                            masu.innerHTML = "&#x2659;";
+                        }
+                        // マスの色
+                        if((x%2==0 && y%2==0) || (x%2==1 && y%2==1)){
+                            masu.className = "white";
+                        }else{
+                            masu.className = "black";
+                        }
+                        document.getElementById("game").appendChild(masu);
+                    }
+                }
+                stopGame();
+                // メッセージの初期設定
+                remaining = document.getElementById("remaining");
+                remaining.innerText = "---"
+                move = document.getElementById("move");
+                move.innerText = "--のターン"
+            }
+
+            function countTime(){
+                // 残り時間の表示
+                var time = (maxTime - (Date.now() - startTime)/1000).toFixed(3);
+                remaining.innerText = " あと " + time + " 秒";
+                if(now==1){
+                    move.innerText = "白のターン";
+                }else{
+                    move.innerText = "黒のターン";
+                }
+                // 時間切れ
+                if(time < 0){
+                    remaining.innerText = " あと 0.000 秒";
+                    if(f==1){
+                        // 手番交代
+                        changeTurn();
+                    }
+                    if(f==1){
+                        f=0;
+                    }
+                }
+            }
+
+            function changeTurn(){
+                for (var i=0; i<64; i++){
+                    var masu = document.getElementById("masu_" + i);
+                    advance[i] = -1;
+                    masu.classList.remove("ok");
+                    masu.onclick = selectPiece;
+                }
+                // 手番交代
+                now *= -1;
+                // 次のタイマー開始
+                timer2 = setTimeout(function(){
+                    // 再開
+                    startTime = Date.now();
+                    timer1 = setInterval(countTime,100);
+                    f = 1;
+                },100);
+            }
+
+            function startMove(){
+                now = 1;
+                // 開始
+                maxTime = 10;
+                startTime = Date.now();
+                timer1 = setInterval(countTime,100);
+                // スタートボタンの無効化
+                document.getElementById("start").disabled = true;
+            }
+
+            function stopGame(){
+                // 停止
+                clearInterval(timer1);
+                // スタートボタンの有効化
+                document.getElementById("start").disabled = false;
+            }
+
+            function selectPiece(event){
+                if(document.getElementById("start").disabled == true){
+                    // 現在の選択を解除
+                    releaseRed();
+                    // マスのインデックスを取得
+                    var index = Number(event.target.id.split("_")[1]);
+                    if(now==1){
+                        var value="w";
+                    }else{
+                        var value="b";
+                    }
+                    // 駒の種類を取得
+                    if(current[index]==value + "_1") {
+                        selectPawn(index%8, Math.floor(index/8));
+                    }else if(current[index]==value + "_2"){
+                        selectLuke(index%8, Math.floor(index/8));
+                    }else if(current[index]==value + "_3"){
+                        selectKnight(index%8, Math.floor(index/8));
+                    }else if(current[index]==value + "_4"){
+                        selectBishop(index%8, Math.floor(index/8));
+                    }else if(current[index]==value + "_5"){
+                        selectQueen(index%8, Math.floor(index/8));
+                    }else if(current[index]==value + "_6"){
+                        selectKing(index%8, Math.floor(index/8));
+                    }
+                }
+            }
+
+            function stopSelect(cx, cy, x, y, ty){
+                // 敵・味方の駒がいた時、その先は選択不可
+                var judge = 0;
+                if(now==1){
+                    var value="w";
+                    var nvalue="b";
+                }else{
+                    var value="b";
+                    var nvalue="w";
+                }
+                // 動けるマス
+                if(0<=x<=7 && 0<=y<=7){
+                    if(current[x+y*8].indexOf(value) != -1){// 味方発見
+                        judge = 1;
+                    }
+                    if(judge==0){
+                        selectOK(cx, cy, x, y, value + ty);
+                    }
+                    if(current[x+y*8].indexOf(nvalue) != -1){// 敵発見
+                        judge = 1;
+                    }
+                }
+                return judge;
+            }
+
+            function selectPawn(cx, cy){
+                // ポーンを選択した場合
+                if(now==1){
+                    var value="w";
+                    var nvalue="b";
+                }else{
+                    var value="b";
+                    var nvalue="w";
+                }
+                if(now==1){// 白の手番
+                    if(cy-1>=0 && current[cx+(cy-1)*8].indexOf(value) == -1 
+                        && current[cx+(cy-1)*8].indexOf(nvalue) == -1){
+                        selectOK(cx, cy, cx, cy-1, "w_1");// 一マス前
+                    }
+                    if(cy==6 && current[cx+(cy-1)*8].indexOf(value) == -1 
+                        && current[cx+(cy-2)*8].indexOf(value) == -1
+                        && current[cx+(cy-2)*8].indexOf(nvalue) == -1){// 最初の位置なら
+                        selectOK(cx, cy, cx, cy-2, "w_1");// 二マス前
+                    }
+                    if(cx-1>=0 && cy-1>=0 && current[(cx-1)+(cy-1)*8].indexOf(nvalue) != -1){
+                        selectOK(cx, cy, cx-1, cy-1, "w_1");// 左斜め前
+                    }
+                    if(cx+1<=7 && cy-1>=0 && current[(cx+1)+(cy-1)*8].indexOf(nvalue) != -1){
+                        selectOK(cx, cy, cx+1, cy-1, "w_1");// 右斜め前
+                    }
+                }else{// 黒の手番
+                    if(cy+1<=7 && current[cx+(cy+1)*8].indexOf(value) == -1 
+                        && current[cx+(cy+1)*8].indexOf(nvalue) == -1){
+                        selectOK(cx, cy, cx, cy+1, "b_1");// 一マス前
+                    }
+                    if(cy==1 && current[cx+(cy+1)*8].indexOf(value) == -1 
+                        && current[cx+(cy+2)*8].indexOf(value) == -1
+                        && current[cx+(cy+2)*8].indexOf(nvalue) == -1){// 最初の位置なら
+                        selectOK(cx, cy, cx, cy+2, "b_1");// 二マス前
+                    }
+                    if(cx+1<=7 && cy+1<=7 && current[(cx+1)+(cy+1)*8].indexOf(nvalue) != -1){
+                        selectOK(cx, cy, cx+1, cy+1, "b_1");// 左斜め前
+                    }
+                    if(cx-1>=0 && cy+1<=7 && current[(cx-1)+(cy+1)*8].indexOf(nvalue) != -1){
+                        selectOK(cx, cy, cx-1, cy+1, "b_1");// 右斜め前
+                    }
+                }
+            }
+
+            function selectLuke(cx, cy){
+                // ルークを選択した場合
+                var judge = new Array(4);// 1:停止
+                for(var i=0; i<4; i++){
+                    judge[i] = 0;
+                }
+                for(var i=1; i<8; i++){
+                    if(cy-i>=0 && judge[0]==0){
+                        judge[0] =  stopSelect(cx, cy, cx, cy-i, "_2");
+                    }
+                    if(cx-i>=0 && judge[1]==0){
+                        judge[1] =  stopSelect(cx, cy, cx-i, cy, "_2");
+                    }
+                    if(cy+i<=7 && judge[2]==0){
+                        judge[2] =  stopSelect(cx, cy, cx, cy+i, "_2");
+                    }
+                    if(cx+i<=7 && judge[3]==0){
+                        judge[3] =  stopSelect(cx, cy, cx+i, cy, "_2");
+                    }
+                }
+            }
+
+            function selectKnight(cx, cy){
+                // ナイトを選択した場合
+                if(now==1){
+                    var value="w";
+                }else{
+                    var value="b";
+                }
+                if(cx-1>=0 && cy-2>=0 && current[(cx-1)+(cy-2)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx-1, cy-2, value + "_3");
+                }
+                if(cx+1<=7 && cy-2>=0 && current[(cx+1)+(cy-2)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx+1, cy-2, value + "_3");
+                }
+                if(cx-2>=0 && cy-1>=0 && current[(cx-2)+(cy-1)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx-2, cy-1, value + "_3");
+                }
+                if(cx+2<=7 && cy-1>=0 && current[(cx+2)+(cy-1)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx+2, cy-1, value + "_3");
+                }
+                if(cx-2>=0 && cy+1<=7 && current[(cx-2)+(cy+1)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx-2, cy+1, value + "_3");
+                }
+                if(cx+2<=7 && cy+1<=7 && current[(cx+2)+(cy+1)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx+2, cy+1, value + "_3");
+                }
+                if(cx-1>=0 && cy+2<=7 && current[(cx-1)+(cy+2)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx-1, cy+2, value + "_3");
+                }
+                if(cx+1<=7 && cy+2<=7 && current[(cx+1)+(cy+2)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx+1, cy+2, value + "_3");
+                }
+            }
+
+            function selectBishop(cx, cy){
+                // ビショップを選択した場合
+                var judge = new Array(4);// 1:停止
+                for(var i=0; i<4; i++){
+                    judge[i] = 0;
+                }
+                for(var i=1; i<8; i++){
+                    if(cx-i>=0 && cy-i>=0 && judge[0]==0){
+                        judge[0] =  stopSelect(cx, cy, cx-i, cy-i, "_4");
+                    }
+                    if(cx-i>=0 && cy+i<=7 && judge[1]==0){
+                        judge[1] =  stopSelect(cx, cy, cx-i, cy+i, "_4");
+                    }
+                    if(cx+i<=7 && cy-i>=0 && judge[2]==0){
+                        judge[2] =  stopSelect(cx, cy, cx+i, cy-i, "_4");
+                    }
+                    if(cx+i<=7 && cy+i<=7 && judge[3]==0){
+                        judge[3] =  stopSelect(cx, cy, cx+i, cy+i, "_4");
+                    }
+                }
+            }
+
+            function selectQueen(cx, cy){
+                // クイーンを選択した場合
+                var judge = new Array(8);// 1:停止
+                for(var i=0; i<8; i++){
+                    judge[i] = 0;
+                }
+                // ルークの選択先
+                for(var i=1; i<8; i++){
+                    if(cy-i>=0 && judge[0]==0){
+                        judge[0] =  stopSelect(cx, cy, cx, cy-i, "_5");
+                    }
+                    if(cx-i>=0 && judge[1]==0){
+                        judge[1] =  stopSelect(cx, cy, cx-i, cy, "_5");
+                    }
+                    if(cy+i<=7 && judge[2]==0){
+                        judge[2] =  stopSelect(cx, cy, cx, cy+i, "_5");
+                    }
+                    if(cx+i<=7 && judge[3]==0){
+                        judge[3] =  stopSelect(cx, cy, cx+i, cy, "_5");
+                    }
+                }
+                // ビショップの選択先
+                for(var i=1; i<8; i++){
+                    if(cx-i>=0 && cy-i>=0 && judge[4]==0){
+                        judge[4] =  stopSelect(cx, cy, cx-i, cy-i, "_5");
+                    }
+                    if(cx-i>=0 && cy+i<=7 && judge[5]==0){
+                        judge[5] =  stopSelect(cx, cy, cx-i, cy+i, "_5");
+                    }
+                    if(cx+i<=7 && cy-i>=0 && judge[6]==0){
+                        judge[6] =  stopSelect(cx, cy, cx+i, cy-i, "_5");
+                    }
+                    if(cx+i<=7 && cy+i<=7 && judge[7]==0){
+                        judge[7] =  stopSelect(cx, cy, cx+i, cy+i, "_5");
+                    }
+                }
+            }
+
+            function selectKing(cx, cy){
+                // キングを選択した場合
+                if(now==1){
+                    var value="w";
+                }else{
+                    var value="b";
+                }
+                if(cx-1>=0 && cy-1>=0 && current[(cx-1)+(cy-1)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx-1, cy-1, value + "_6");
+                }
+                if(cy-1>=0 && current[cx+(cy-1)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx, cy-1, value + "_6");
+                }
+                if(cx+1<=7 && cy-1>=0 && current[(cx+1)+(cy-1)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx+1, cy-1, value + "_6");
+                }
+                if(cx-1>=0 && current[(cx-1)+cy*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx-1, cy, value + "_6");
+                }
+                if(cx+1<=7 && current[(cx+1)+cy*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx+1, cy, value + "_6");
+                }
+                if(cx-1>=0 && cy+1<=7 && current[(cx-1)+(cy+1)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx-1, cy+1, value + "_6");
+                }
+                if(cy+1<=7 && current[cx+(cy+1)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx, cy+1, value + "_6");
+                }
+                if(cx+1<=7 && cy+1<=7 && current[(cx+1)+(cy+1)*8].indexOf(value) == -1) {
+                    selectOK(cx, cy, cx+1, cy+1, value + "_6");
+                }
+            }
+
+            function releaseRed(){
+                // 現在の選択を解除
+                for(var i=0; i<64; i++){
+                    var masu = document.getElementById("masu_" + i);
+                    advance[i] = -1;
+                    masu.classList.remove("ok");
+                }
+            }
+
+            function selectOK(cx, cy, x, y, value){
+                // 動けるマスにする
+                var index = x+y*8;
+                var masu = document.getElementById("masu_" + index);
+                advance[index] = 1;
+                masu.classList.add("ok");
+                masu.onclick = function(){
+                    selectMasu(cx, cy, value);
+                };
+            }
+
+            function selectMasu(cx, cy, value){
+                // マスを選択した時
+                var cindex = cx+cy*8;
+                var masu = document.getElementById("masu_" + cindex);
+                var index = Number(event.target.id.split("_")[1]);
+                current[cindex] = "0";
+                masu.innerHTML = "";
+                if(value == "w_1" && advance[index] == 1){
+                    current[index] = "w_1";
+                    event.target.innerHTML = "&#x2659;";
+                    releaseOK();
+                }else if(value == "w_2" && advance[index] == 1){
+                    current[index] = "w_2";
+                    event.target.innerHTML = "&#x2656;";
+                    releaseOK();
+                }else if(value == "w_3" && advance[index] == 1){
+                    current[index] = "w_3";
+                    event.target.innerHTML = "&#x2658;";
+                    releaseOK();
+                }else if(value == "w_4" && advance[index] == 1){
+                    current[index] = "w_4";
+                    event.target.innerHTML = "&#x2657;";
+                    releaseOK();
+                }else if(value == "w_5" && advance[index] == 1){
+                    current[index] = "w_5";
+                    event.target.innerHTML = "&#x2655;";
+                    releaseOK();
+                }else if(value == "w_6" && advance[index] == 1){
+                    current[index] = "w_6";
+                    event.target.innerHTML = "&#x2654;";
+                    releaseOK();
+                }else if(value == "b_1" && advance[index] == 1){
+                    current[index] = "b_1";
+                    event.target.innerHTML = "&#x265f;";
+                    releaseOK();
+                }else if(value == "b_2" && advance[index] == 1){
+                    current[index] = "b_2";
+                    event.target.innerHTML = "&#x265c;";
+                    releaseOK();
+                }else if(value == "b_3" && advance[index] == 1){
+                    current[index] = "b_3";
+                    event.target.innerHTML = "&#x265e;";
+                    releaseOK();
+                }else if(value == "b_4" && advance[index] == 1){
+                    current[index] = "b_4";
+                    event.target.innerHTML = "&#x265d;";
+                    releaseOK();
+                }else if(value == "b_5" && advance[index] == 1){
+                    current[index] = "b_5";
+                    event.target.innerHTML = "&#x265b;";
+                    releaseOK();
+                }else if(value == "b_6" && advance[index] == 1){
+                    current[index] = "b_6";
+                    event.target.innerHTML = "&#x265a;";
+                    releaseOK();
+                }
+            }
+
+            function releaseOK(){
+                // 駒を動かしたら選択できるマスを解除
+                checkmate();
+                // 手番交代
+                changeTurn();
+            }
+
+            function checkmate(){
+                // チェックメイト判定
+                var winW = 0;// 0:白勝ちのページへ
+                var winB = 0;// 0:黒勝ちのページへ
+                for(var i=0; i<64; i++){
+                    if(current[i]=="w_6"){// 白キングがある→winB=1
+                        winB = 1;
+                    }else if(current[i]=="b_6"){// 白キングがある→winB=1
+                        winW = 1;
+                    }
+                }
+                if(winB==0){
+                    // 黒勝ちのページへ
+                    window.location.href = 'winnerB.html';
+                }else if(winW==0){
+                    // 白勝ちのページへ
+                    window.location.href = 'winnerW.html';
+                }
+            }
+        </script>
+        <style>
+            #game {position: relative;}
+            #game div{
+                position: absolute;
+                font-size: 80px;
+                text-align: center;
+                line-height: 80px;
+                width: 80px;
+                height: 80px;
+                border: 2px outset #cccccc;
+                user-select: none;
+                cursor: pointer;
+            }
+            .white {background-color: #ddb48e;}
+            .black {background-color: #8a6231;}
+            .ok {background-color: rgb(224, 116, 116);}
+            #winnerA {
+                background-color: white;
+                width: 70px;
+                height: 40px;
+            }
+            #winnerB {
+                background-color: black;
+                color: white;
+                position: absolute;
+                top: 185px;
+                left: 580px;
+                width: 70px;
+                height: 40px;
+            }
+            .title {
+                position: relative;
+                left: 120px;
+                font-size: 50px;
+                color: #694a25;
+                font-style: italic;
+                text-decoration: underline;
+            }
+            #move {
+                position: relative;
+                left: 20px;
+                font-size: 30px;
+                color: black;
+            }
+            #remaining {
+                position: relative;
+                left: 30px;
+            }
+        </style>
+    </head>
+    <body onload="init()">
+        <p class="title">早押しで chess!!</p>
+        <input type="button" value="白　投了" id="winnerA" onclick="location.href='winnerB.html'">
+        <input type="button" value="スタート" id="start" onclick="startMove()">
+        <input type="button" value="最初から" onclick="init()">
+        <span id="move"></span>
+        <span id="remaining">---</span>
+        <input type="button" value="黒　投了" id="winnerB" onclick="location.href='winnerW.html'">
+        <hr>
+        <div id="game"></div>
+    </body>
+</html>
